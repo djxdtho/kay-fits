@@ -117,7 +117,8 @@ export default function Checkout() {
           shipping_state: data.state,
           shipping_city: data.city,
           total: getTotal(),
-          status: 'pending',
+          payment_status: 'pending',
+          delivery_status: 'pending',
           payment_method: data.paymentMethod,
         })
       } catch (supabaseErr) {
