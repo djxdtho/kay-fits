@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Package, Users, Lock, Eye, EyeOff } from 'lucide-react'
-import { supabase, supabaseAdmin } from '../lib/supabase'
-import { Order } from '../store/cart'
+import { Package, Users, Lock, Search, ChevronDown, ChevronUp, EyeOff } from 'lucide-react'
+import { supabaseAdmin } from '../lib/supabase'
 import { Link } from 'react-router-dom'
 
 const ADMIN_PASSWORD = 'kayfits2024'
+
+const paymentStatuses = ['pending', 'confirmed', 'cancelled']
+const deliveryStatuses = ['pending', 'on_the_way', 'delivered']
 
 export default function Admin() {
   const [password, setPassword] = useState('')
@@ -15,7 +17,8 @@ export default function Admin() {
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'orders' | 'users'>('orders')
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [paymentFilter, setPaymentFilter] = useState('')
+  const [deliveryFilter, setDeliveryFilter] = useState('')
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null)
   const [error, setError] = useState('')
 
@@ -40,29 +43,7 @@ export default function Admin() {
         .range(0, 99)
 
       if (error) throw error
-
-      const ordersWithItems = await Promise.all(
-        (ordersData || []).map(async (order) => {
-          const { data: items } = await supabaseAdmin
-            .from('order_items')
-            .select('*, products(*)')
-            .eq('order_id', order.id)
-
-          const { data: userData } = await supabaseAdmin
-            .from('users')
-            .select('email')
-            .eq('id', order.user_id)
-            .single()
-
-          return {
-            ...order,
-            items: items || [],
-            user_email: userData?.email
-          }
-        })
-      )
-
-      setOrders(ordersWithItems)
+      setOrders(ordersData || [])
     } catch (err) {
       console.error('Error fetching orders:', err)
     } finally {
@@ -73,7 +54,7 @@ export default function Admin() {
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabaseAdmin
-        .from('users')
+        .from('profiles')
         .select('*')
         .range(0, 99)
 
@@ -84,21 +65,29 @@ export default function Admin() {
     }
   }
 
-  const updateOrderStatus = async (orderId: number, status: string) => {
+  const updatePaymentStatus = async (orderId: number, status: string) => {
     try {
-      const { error } = await supabaseAdmin
+      await supabaseAdmin
         .from('orders')
-        .update({ status })
+        .update({ payment_status: status })
         .eq('id', orderId)
-
-      if (error) throw error
       fetchOrders()
     } catch (err) {
-      console.error('Error updating order:', err)
+      console.error('Error updating payment:', err)
     }
   }
 
-  const statusFlow = ['pending', 'confirmed', 'on_the_way', 'delivered']
+  const updateDeliveryStatus = async (orderId: number, status: string) => {
+    try {
+      await supabaseAdmin
+        .from('orders')
+        .update({ delivery_status: status })
+        .eq('id', orderId)
+      fetchOrders()
+    } catch (err) {
+      console.error('Error updating delivery:', err)
+    }
+  }
 
   if (!authenticated) {
     return (
@@ -125,7 +114,7 @@ export default function Admin() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5 text-gray-400" /> : <Eye className="w-5 h-5 text-gray-400" />}
+                  {showPassword ? <EyeOff className="w-5 h-5 text-gray-400" /> : <Search className="w-5 h-5 text-gray-400" />}
                 </button>
               </div>
               {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -148,10 +137,11 @@ export default function Admin() {
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm || 
       order.id.toString().includes(searchTerm) ||
-      order.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.tracking_number?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = !statusFilter || order.status === statusFilter
-    return matchesSearch && matchesStatus
+      order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customer_email?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesPayment = !paymentFilter || order.payment_status === paymentFilter
+    const matchesDelivery = !deliveryFilter || order.delivery_status === deliveryFilter
+    return matchesSearch && matchesPayment && matchesDelivery
   })
 
   return (
@@ -192,24 +182,33 @@ export default function Admin() {
 
         {activeTab === 'orders' && (
           <>
-            <div className="flex gap-4 mb-6">
+            <div className="flex gap-4 mb-6 flex-wrap">
               <input
                 type="text"
                 placeholder="Search orders..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 px-4 py-2 border rounded-lg"
+                className="flex-1 min-w-[200px] px-4 py-2 border rounded-lg"
               />
               <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
                 className="px-4 py-2 border rounded-lg"
               >
-                <option value="">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="on_the_way">On The Way</option>
-                <option value="delivered">Delivered</option>
+                <option value="">All Payments</option>
+                {paymentStatuses.map(s => (
+                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                ))}
+              </select>
+              <select
+                value={deliveryFilter}
+                onChange={(e) => setDeliveryFilter(e.target.value)}
+                className="px-4 py-2 border rounded-lg"
+              >
+                <option value="">All Deliveries</option>
+                {deliveryStatuses.map(s => (
+                  <option key={s} value={s}>{s === 'on_the_way' ? 'On The Way' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                ))}
               </select>
             </div>
 
@@ -228,18 +227,23 @@ export default function Admin() {
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="font-medium">Order #{order.id}</span>
-                          <span className="text-gray-500 ml-4">{order.user_email}</span>
+                          <span className="text-gray-500 ml-4">{order.customer_name}</span>
+                          <span className="text-gray-400 ml-2 text-sm">{order.customer_email}</span>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           <span className={`px-3 py-1 rounded-full text-sm ${
-                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                            order.status === 'on_the_way' ? 'bg-purple-100 text-purple-800' :
-                            'bg-green-100 text-green-800'
+                            order.payment_status === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {order.status}
+                            {order.payment_status || 'pending'}
                           </span>
-                          <span className="font-medium">₦{order.total.toLocaleString()}</span>
+                          <span className={`px-3 py-1 rounded-full text-sm ${
+                            order.delivery_status === 'delivered' ? 'bg-green-100 text-green-800' :
+                            order.delivery_status === 'on_the_way' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {order.delivery_status || 'pending'}
+                          </span>
+                          <span className="font-medium">₦{Number(order.total).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
@@ -247,37 +251,44 @@ export default function Admin() {
                     {expandedOrder === order.id && (
                       <div className="border-t p-4">
                         <div className="mb-4">
-                          <h4 className="font-medium mb-2">Items:</h4>
-                          {order.items.map((item: any, i: any) => (
-                            <div key={i} className="flex justify-between py-2 border-b">
-                              <div>
-                                <p>{item.product?.name || item.products?.name}</p>
-                                <p className="text-sm text-gray-500">{item.size} / {item.color} x {item.quantity}</p>
-                              </div>
-                              <p>₦{item.price.toLocaleString()}</p>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        <div className="mb-4">
-                          <p><strong>Phone:</strong> {order.shipping_phone}</p>
-                          <p><strong>Address:</strong> {order.shipping_address}</p>
+                          <p><strong>Phone:</strong> {order.customer_phone}</p>
+                          <p><strong>Address:</strong> {order.shipping_address}, {order.shipping_city}, {order.shipping_state}</p>
                           <p><strong>Payment:</strong> {order.payment_method}</p>
-                          {order.tracking_number && <p><strong>Tracking:</strong> {order.tracking_number}</p>}
                         </div>
                         
-                        <div className="flex gap-2">
-                          {statusFlow.map(status => (
-                            <button
-                              key={status}
-                              onClick={() => updateOrderStatus(order.id, status)}
-                              className={`px-4 py-2 rounded ${
-                                order.status === status ? 'bg-black text-white' : 'bg-gray-100'
-                              }`}
-                            >
-                              {status}
-                            </button>
-                          ))}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="font-medium mb-2">Payment Confirmation:</p>
+                            <div className="flex gap-2">
+                              {paymentStatuses.map(status => (
+                                <button
+                                  key={status}
+                                  onClick={() => updatePaymentStatus(order.id, status)}
+                                  className={`px-4 py-2 rounded ${
+                                    (order.payment_status || 'pending') === status ? 'bg-black text-white' : 'bg-gray-100'
+                                  }`}
+                                >
+                                  {status}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="font-medium mb-2">Delivery Progress:</p>
+                            <div className="flex gap-2 flex-wrap">
+                              {deliveryStatuses.map(status => (
+                                <button
+                                  key={status}
+                                  onClick={() => updateDeliveryStatus(order.id, status)}
+                                  className={`px-4 py-2 rounded ${
+                                    (order.delivery_status || 'pending') === status ? 'bg-black text-white' : 'bg-gray-100'
+                                  }`}
+                                >
+                                  {status === 'on_the_way' ? 'On The Way' : status}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -290,26 +301,30 @@ export default function Admin() {
 
         {activeTab === 'users' && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left">Email</th>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Phone</th>
-                  <th className="px-4 py-3 text-left">Joined</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map(user => (
-                  <tr key={user.id} className="border-t">
-                    <td className="px-4 py-3">{user.email}</td>
-                    <td className="px-4 py-3">{user.full_name || '-'}</td>
-                    <td className="px-4 py-3">{user.phone || '-'}</td>
-                    <td className="px-4 py-3">{new Date(user.created_at).toLocaleDateString()}</td>
+            {users.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">No users found</div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Email</th>
+                    <th className="px-4 py-3 text-left">Name</th>
+                    <th className="px-4 py-3 text-left">Phone</th>
+                    <th className="px-4 py-3 text-left">Joined</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map(user => (
+                    <tr key={user.id} className="border-t">
+                      <td className="px-4 py-3">{user.email}</td>
+                      <td className="px-4 py-3">{user.full_name || '-'}</td>
+                      <td className="px-4 py-3">{user.phone || '-'}</td>
+                      <td className="px-4 py-3">{new Date(user.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>
