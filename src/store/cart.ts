@@ -31,6 +31,8 @@ export interface Order {
   status: 'pending' | 'confirmed' | 'on_the_way' | 'delivered' | 'cancelled' | 'failed'
   payment_method: 'bank_transfer' | 'pay_on_delivery'
   shipping_address: string
+  shipping_phone?: string
+  tracking_number?: string
   created_at: string
 }
 

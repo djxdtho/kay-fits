@@ -1,34 +1,35 @@
-import { useState, useEffect } from 'react'
-import { Package, Users, Search, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
+import { useState } from 'react'
+import { Package, Users, Lock, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { useCartStore, Order, Product } from '../store/cart'
-import { toast } from 'sonner'
+import { Order } from '../store/cart'
+import { Link } from 'react-router-dom'
 
-interface OrderWithItems extends Order {
-  items: { product: Product; quantity: number; size: string; color: string; price: number }[]
-  user_email?: string
-}
-
-const statusFlow = ['pending', 'confirmed', 'on_the_way', 'delivered']
+const ADMIN_PASSWORD = 'kayfits2024'
 
 export default function Admin() {
-  const { user } = useCartStore()
-  const [orders, setOrders] = useState<OrderWithItems[]>([])
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [authenticated, setAuthenticated] = useState(false)
+  const [orders, setOrders] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'orders' | 'users'>('orders')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null)
+  const [error, setError] = useState('')
 
-  const isAdmin = user?.email?.includes('admin') || user?.id === 'admin'
-
-  useEffect(() => {
-    if (isAdmin) {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (password === ADMIN_PASSWORD) {
+      setAuthenticated(true)
+      setLoading(true)
       fetchOrders()
       fetchUsers()
+    } else {
+      setError('Invalid password')
     }
-  }, [isAdmin])
+  }
 
   const fetchOrders = async () => {
     try {
@@ -55,14 +56,8 @@ export default function Admin() {
 
           return {
             ...order,
-            items: items?.map(item => ({
-              product: item.products,
-              quantity: item.quantity,
-              size: item.size,
-              color: item.color,
-              price: item.price,
-            })) || [],
-            user_email: userData?.email,
+            items: items || [],
+            user_email: userData?.email
           }
         })
       )
@@ -80,7 +75,6 @@ export default function Admin() {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .order('created_at', { ascending: false })
         .range(0, 99)
 
       if (error) throw error
@@ -90,270 +84,233 @@ export default function Admin() {
     }
   }
 
-  const updateOrderStatus = async (orderId: number, newStatus: string) => {
+  const updateOrderStatus = async (orderId: number, status: string) => {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ status: newStatus })
+        .update({ status })
         .eq('id', orderId)
 
       if (error) throw error
-
-      setOrders(orders.map(o => 
-        o.id === orderId ? { ...o, status: newStatus as any } : o
-      ))
-      toast.success(`Order #${orderId} marked as ${newStatus}`)
+      fetchOrders()
     } catch (err) {
       console.error('Error updating order:', err)
-      toast.error('Failed to update order')
     }
+  }
+
+  const statusFlow = ['pending', 'confirmed', 'on_the_way', 'delivered']
+
+  if (!authenticated) {
+    return (
+      <div className="pt-24 lg:pt-28 min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full mx-4">
+          <div className="text-center mb-6">
+            <Lock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+            <h1 className="font-display text-2xl font-bold">Admin Login</h1>
+            <p className="text-gray-500 mt-2">Enter password to access admin panel</p>
+          </div>
+          <form onSubmit={handleLogin}>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 border rounded-lg pr-12"
+                  placeholder="Enter admin password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5 text-gray-400" /> : <Eye className="w-5 h-5 text-gray-400" />}
+                </button>
+              </div>
+              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+            </div>
+            <button
+              type="submit"
+              className="w-full bg-black text-white py-3 rounded-lg font-medium hover:bg-gray-800"
+            >
+              Login
+            </button>
+          </form>
+          <Link to="/" className="block text-center mt-4 text-gray-500 hover:text-black">
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm || 
       order.id.toString().includes(searchTerm) ||
       order.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.shipping_address?.toLowerCase().includes(searchTerm.toLowerCase())
-    
+      order.tracking_number?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !statusFilter || order.status === statusFilter
-    
     return matchesSearch && matchesStatus
   })
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800'
-      case 'confirmed': return 'bg-blue-100 text-blue-800'
-      case 'on_the_way': return 'bg-purple-100 text-purple-800'
-      case 'delivered': return 'bg-green-100 text-green-800'
-      case 'cancelled': return 'bg-red-100 text-red-800'
-      case 'failed': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="pt-24 lg:pt-28 pb-16 min-h-screen">
-        <div className="max-w-lg mx-auto px-4 text-center py-16">
-          <AlertCircle className="w-16 h-16 mx-auto text-gray-300 mb-6" />
-          <h1 className="font-display text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-500">You don't have admin access.</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="pt-24 lg:pt-28 pb-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="font-display text-3xl lg:text-4xl font-bold mb-8">Admin Panel</h1>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <p className="text-2xl font-bold">{orders.length}</p>
-            <p className="text-sm text-gray-500">Total Orders</p>
-          </div>
-          <div className="bg-yellow-50 rounded-lg p-4">
-            <p className="text-2xl font-bold text-yellow-600">
-              {orders.filter(o => o.status === 'pending').length}
-            </p>
-            <p className="text-sm text-gray-500">Pending</p>
-          </div>
-          <div className="bg-blue-50 rounded-lg p-4">
-            <p className="text-2xl font-bold text-blue-600">
-              {orders.filter(o => o.status === 'confirmed').length}
-            </p>
-            <p className="text-sm text-gray-500">Confirmed</p>
-          </div>
-          <div className="bg-green-50 rounded-lg p-4">
-            <p className="text-2xl font-bold text-green-600">
-              {orders.filter(o => o.status === 'delivered').length}
-            </p>
-            <p className="text-sm text-gray-500">Delivered</p>
-          </div>
+    <div className="pt-24 lg:pt-28 min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="font-display text-3xl font-bold">Admin Panel</h1>
+          <button
+            onClick={() => setAuthenticated(false)}
+            className="text-gray-500 hover:text-black"
+          >
+            Logout
+          </button>
         </div>
 
-        <div className="flex gap-4 border-b mb-6">
-          <button
-            onClick={() => setActiveTab('orders')}
-            className={`pb-4 px-4 font-medium flex items-center gap-2 ${
-              activeTab === 'orders'
-                ? 'border-b-2 border-black'
-                : 'text-gray-500'
-            }`}
-          >
-            <Package className="w-5 h-5" />
-            Orders ({orders.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`pb-4 px-4 font-medium flex items-center gap-2 ${
-              activeTab === 'users'
-                ? 'border-b-2 border-black'
-                : 'text-gray-500'
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            Users ({users.length})
-          </button>
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab('orders')}
+              className={`flex-1 py-4 text-center font-medium ${
+                activeTab === 'orders' ? 'border-b-2 border-black' : 'text-gray-500'
+              }`}
+            >
+              <Package className="w-5 h-5 inline-block mr-2" />
+              Orders ({orders.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex-1 py-4 text-center font-medium ${
+                activeTab === 'users' ? 'border-b-2 border-black' : 'text-gray-500'
+              }`}
+            >
+              <Users className="w-5 h-5 inline-block mr-2" />
+              Users ({users.length})
+            </button>
+          </div>
         </div>
 
         {activeTab === 'orders' && (
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <>
+            <div className="flex gap-4 mb-6">
               <input
                 type="text"
                 placeholder="Search orders..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:border-black focus:outline-none"
+                className="flex-1 px-4 py-2 border rounded-lg"
               />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border rounded-lg"
+              >
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="on_the_way">On The Way</option>
+                <option value="delivered">Delivered</option>
+              </select>
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 rounded-lg border border-gray-200 focus:border-black focus:outline-none"
-            >
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="on_the_way">On the Way</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-        )}
 
-        {activeTab === 'orders' && (
-          loading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse h-20 bg-gray-100 rounded-lg" />
-              ))}
-            </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-16">
-              <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">No orders found</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredOrders.map((order) => (
-                <div key={order.id} className="border rounded-lg overflow-hidden">
-                  <div 
-                    className="p-4 flex flex-wrap items-center justify-between gap-4 cursor-pointer hover:bg-gray-50"
-                    onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                  >
-                    <div className="flex items-center gap-4">
-                      {expandedOrder === order.id ? (
-                        <ChevronUp className="w-5 h-5" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5" />
-                      )}
-                      <div>
-                        <p className="font-medium">Order #{order.id}</p>
-                        <p className="text-sm text-gray-500">{order.user_email}</p>
+            {loading ? (
+              <div className="text-center py-12">Loading...</div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">No orders found</div>
+            ) : (
+              <div className="space-y-4">
+                {filteredOrders.map(order => (
+                  <div key={order.id} className="bg-white rounded-lg shadow overflow-hidden">
+                    <div 
+                      className="p-4 cursor-pointer hover:bg-gray-50"
+                      onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium">Order #{order.id}</span>
+                          <span className="text-gray-500 ml-4">{order.user_email}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className={`px-3 py-1 rounded-full text-sm ${
+                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            order.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                            order.status === 'on_the_way' ? 'bg-purple-100 text-purple-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {order.status}
+                          </span>
+                          <span className="font-medium">₦{order.total.toLocaleString()}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(order.status)}`}>
-                        {order.status.replace('_', ' ').toUpperCase()}
-                      </span>
-                      <span className="font-medium">₦{order.total.toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  {expandedOrder === order.id && (
-                    <div className="border-t p-4 bg-gray-50">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div>
-                          <h4 className="font-medium mb-2">Customer Details</h4>
-                          <p className="text-sm text-gray-600">{order.shipping_address}</p>
-                          <p className="text-sm mt-2">Payment: {order.payment_method === 'bank_transfer' ? 'Bank Transfer' : 'Pay on Delivery'}</p>
+                    
+                    {expandedOrder === order.id && (
+                      <div className="border-t p-4">
+                        <div className="mb-4">
+                          <h4 className="font-medium mb-2">Items:</h4>
+                          {order.items.map((item: any, i: any) => (
+                            <div key={i} className="flex justify-between py-2 border-b">
+                              <div>
+                                <p>{item.product?.name || item.products?.name}</p>
+                                <p className="text-sm text-gray-500">{item.size} / {item.color} x {item.quantity}</p>
+                              </div>
+                              <p>₦{item.price.toLocaleString()}</p>
+                            </div>
+                          ))}
                         </div>
-                        <div>
-                          <h4 className="font-medium mb-2">Items</h4>
-                          {order.items?.map((item, i) => (
-                            <p key={i} className="text-sm text-gray-600">
-                              {item.quantity}x {item.product?.name} ({item.size}/{item.color})
-                            </p>
+                        
+                        <div className="mb-4">
+                          <p><strong>Phone:</strong> {order.shipping_phone}</p>
+                          <p><strong>Address:</strong> {order.shipping_address}</p>
+                          <p><strong>Payment:</strong> {order.payment_method}</p>
+                          {order.tracking_number && <p><strong>Tracking:</strong> {order.tracking_number}</p>}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          {statusFlow.map(status => (
+                            <button
+                              key={status}
+                              onClick={() => updateOrderStatus(order.id, status)}
+                              className={`px-4 py-2 rounded ${
+                                order.status === status ? 'bg-black text-white' : 'bg-gray-100'
+                              }`}
+                            >
+                              {status}
+                            </button>
                           ))}
                         </div>
                       </div>
-
-                      <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
-                        <p className="text-sm text-gray-500 mr-4">Update Status:</p>
-                        {statusFlow.map((status) => (
-                          <button
-                            key={status}
-                            onClick={() => updateOrderStatus(order.id, status)}
-                            disabled={order.status === status}
-                            className={`px-3 py-1 rounded text-sm disabled:opacity-50 ${
-                              status === 'pending' ? 'bg-yellow-100 hover:bg-yellow-200' :
-                              status === 'confirmed' ? 'bg-blue-100 hover:bg-blue-200' :
-                              status === 'on_the_way' ? 'bg-purple-100 hover:bg-purple-200' :
-                              'bg-green-100 hover:bg-green-200'
-                            }`}
-                          >
-                            {status === 'on_the_way' ? 'On The Way' : status.charAt(0).toUpperCase() + status.slice(1)}
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => updateOrderStatus(order.id, 'cancelled')}
-                          className="px-3 py-1 rounded text-sm bg-red-100 hover:bg-red-200 text-red-800"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {activeTab === 'users' && (
-          loading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse h-16 bg-gray-100 rounded-lg" />
-              ))}
-            </div>
-          ) : users.length === 0 ? (
-            <div className="text-center py-16">
-              <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">No users registered</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Name</th>
-                    <th className="text-left py-3 px-4">Email</th>
-                    <th className="text-left py-3 px-4">Phone</th>
-                    <th className="text-left py-3 px-4">Joined</th>
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left">Email</th>
+                  <th className="px-4 py-3 text-left">Name</th>
+                  <th className="px-4 py-3 text-left">Phone</th>
+                  <th className="px-4 py-3 text-left">Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(user => (
+                  <tr key={user.id} className="border-t">
+                    <td className="px-4 py-3">{user.email}</td>
+                    <td className="px-4 py-3">{user.full_name || '-'}</td>
+                    <td className="px-4 py-3">{user.phone || '-'}</td>
+                    <td className="px-4 py-3">{new Date(user.created_at).toLocaleDateString()}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">{u.full_name}</td>
-                      <td className="py-3 px-4">{u.email}</td>
-                      <td className="py-3 px-4">{u.phone}</td>
-                      <td className="py-3 px-4">
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
