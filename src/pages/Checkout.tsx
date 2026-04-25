@@ -43,6 +43,12 @@ export default function Checkout() {
   const paymentMethod = watch('paymentMethod')
 
   const onSubmit = async (data: CheckoutForm) => {
+    if (!user) {
+      toast.error('Please login to checkout')
+      navigate('/login')
+      return
+    }
+
     if (cart.length === 0) {
       toast.error('Your bag is empty')
       return
@@ -51,22 +57,16 @@ export default function Checkout() {
     setLoading(true)
 
     try {
-      // Create order without auth if not logged in (guest checkout)
-      const orderData: any = {
-        total: getTotal(),
-        status: 'pending',
-        payment_method: data.paymentMethod,
-        shipping_address: `${data.fullName}, ${data.address}, ${data.city}, ${data.state}`,
-        shipping_phone: data.phone,
-      }
-      
-      if (user) {
-        orderData.user_id = user.id
-      }
-
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .insert(orderData)
+        .insert({
+          user_id: user.id,
+          total: getTotal(),
+          status: 'pending',
+          payment_method: data.paymentMethod,
+          shipping_address: `${data.fullName}, ${data.address}, ${data.city}, ${data.state}`,
+          shipping_phone: data.phone,
+        })
         .select()
         .single()
 
@@ -75,7 +75,6 @@ export default function Checkout() {
         throw new Error(orderError.message)
       }
 
-      // Add order items
       const orderItems = cart.map(item => ({
         order_id: order.id,
         product_id: item.product.id,
