@@ -10,4 +10,7 @@ export default defineConfig({
     },
   },
   base: '/kay-fits/',
+  build: {
+    outDir: 'docs',
+  },
 })
