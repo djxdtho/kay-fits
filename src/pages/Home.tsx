@@ -90,7 +90,7 @@ export default function Home() {
               Elevate your style with premium streetwear designed for the modern individual.
             </p>
             <Link 
-              to="/shop"
+              to="#/shop"
               className="hero-text inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-colors btn-hover"
             >
               Shop Now
@@ -140,7 +140,7 @@ export default function Home() {
               Featured
             </h2>
             <Link 
-              to="/shop"
+              to="#/shop"
               className="hidden md:flex items-center gap-2 text-gray-600 hover:text-black transition-colors"
             >
               View All
@@ -168,7 +168,7 @@ export default function Home() {
           
           <div className="mt-8 text-center md:hidden">
             <Link 
-              to="/shop"
+              to="#/shop"
               className="inline-flex items-center gap-2 border border-black px-6 py-3 rounded-full"
             >
               View All Products
@@ -188,7 +188,7 @@ export default function Home() {
             Join thousands of satisfied customers who trust KAY-FITS for quality streetwear.
           </p>
           <Link 
-            to="/shop"
+            to="#/shop"
             className="inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-colors"
           >
             Shop Now
