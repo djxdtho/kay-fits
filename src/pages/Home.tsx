@@ -1,0 +1,212 @@
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, Star } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { Product } from '../store/cart'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
+
+const categories = [
+  { name: 'Track Wear', slug: 'track', image: '/images/category_track.jpg' },
+  { name: 'Hoodies', slug: 'hoodie', image: '/images/category_hoodie.jpg' },
+  { name: 'Polo', slug: 'polo', image: '/images/category_polo.jpg' },
+  { name: 'Cargo', slug: 'cargo', image: '/images/category_cargo.jpg' },
+  { name: 'Jersey', slug: 'jersey', image: '/images/category_jersey.jpg' },
+]
+
+export default function Home() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('in_stock', true)
+        .range(0, 7)
+      
+      if (error) throw error
+      setProducts(data || [])
+    } catch (err) {
+      console.error('Error fetching products:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useGSAP(() => {
+    gsap.from('.hero-text', {
+      y: 50,
+      opacity: 0,
+      duration: 0.8,
+      stagger: 0.2,
+      ease: 'power3.out'
+    })
+  })
+
+  return (
+    <div className="pt-16 lg:pt-20">
+      {/* Hero Section */}
+      <section className="relative h-[90vh] min-h-[600px] bg-gray-100 overflow-hidden">
+        <div className="absolute inset-0">
+          <img 
+            src="/images/hero_model_1.jpg" 
+            alt="Hero"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
+          <div className="max-w-xl">
+            <p className="hero-text text-white/80 text-sm tracking-widest uppercase mb-4">
+              New Collection 2026
+            </p>
+            <h1 className="hero-text font-display text-5xl lg:text-7xl font-bold text-white mb-6">
+              STREETWEAR<br />
+              <span className="italic font-light">ESSENTIALS</span>
+            </h1>
+            <p className="hero-text text-white/90 text-lg mb-8 max-w-md">
+              Elevate your style with premium streetwear designed for the modern individual.
+            </p>
+            <Link 
+              to="/shop"
+              className="hero-text inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-colors btn-hover"
+            >
+              Shop Now
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Categories */}
+      <section className="py-16 lg:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="font-display text-3xl lg:text-4xl font-bold text-center mb-12">
+            Shop by Category
+          </h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
+            {categories.map((cat, i) => (
+              <Link 
+                key={cat.slug}
+                to={`/shop/${cat.slug}`}
+                className="group relative aspect-[3/4] overflow-hidden rounded-lg animate-fade-in"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <img 
+                  src={cat.image} 
+                  alt={cat.name}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-white font-medium text-lg tracking-wide">
+                    {cat.name}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Products */}
+      <section className="py-16 lg:py-24 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-12">
+            <h2 className="font-display text-3xl lg:text-4xl font-bold">
+              Featured
+            </h2>
+            <Link 
+              to="/shop"
+              className="hidden md:flex items-center gap-2 text-gray-600 hover:text-black transition-colors"
+            >
+              View All
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          
+          {loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-[3/4] bg-gray-200 rounded-lg mb-3" />
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
+                  <div className="h-4 bg-gray-200 rounded w-1/4" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {products.map((product, i) => (
+                <ProductCard key={product.id} product={product} index={i} />
+              ))}
+            </div>
+          )}
+          
+          <div className="mt-8 text-center md:hidden">
+            <Link 
+              to="/shop"
+              className="inline-flex items-center gap-2 border border-black px-6 py-3 rounded-full"
+            >
+              View All Products
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Banner */}
+      <section className="py-16 lg:py-24 bg-black text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-display text-3xl lg:text-5xl font-bold mb-6">
+            Ready to Elevate Your Style?
+          </h2>
+          <p className="text-gray-400 text-lg mb-8 max-w-xl mx-auto">
+            Join thousands of satisfied customers who trust KAY-FITS for quality streetwear.
+          </p>
+          <Link 
+            to="/shop"
+            className="inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-colors"
+          >
+            Shop Now
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function ProductCard({ product, index }: { product: Product; index: number }) {
+  return (
+    <Link 
+      to={`/product/${product.id}`}
+      className="product-card group block animate-fade-in"
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
+      <div className="relative aspect-[3/4] overflow-hidden rounded-lg mb-3 bg-gray-100">
+        <img 
+          src={product.image_url} 
+          alt={product.name}
+          className="product-image w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        <div className="absolute inset-x-0 bottom-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+          <button className="w-full bg-white text-black py-3 rounded-full font-medium hover:bg-gray-100">
+            Quick Add
+          </button>
+        </div>
+      </div>
+      <h3 className="font-medium text-sm line-clamp-1">{product.name}</h3>
+      <p className="text-gray-600 mt-1">₦{product.price.toLocaleString()}</p>
+    </Link>
+  )
+}
