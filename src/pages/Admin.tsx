@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Package, Users, Lock, Eye, EyeOff } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import { Order } from '../store/cart'
 import { Link } from 'react-router-dom'
 
@@ -33,7 +33,7 @@ export default function Admin() {
 
   const fetchOrders = async () => {
     try {
-      const { data: ordersData, error } = await supabase
+      const { data: ordersData, error } = await supabaseAdmin
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false })
@@ -43,12 +43,12 @@ export default function Admin() {
 
       const ordersWithItems = await Promise.all(
         (ordersData || []).map(async (order) => {
-          const { data: items } = await supabase
+          const { data: items } = await supabaseAdmin
             .from('order_items')
             .select('*, products(*)')
             .eq('order_id', order.id)
 
-          const { data: userData } = await supabase
+          const { data: userData } = await supabaseAdmin
             .from('users')
             .select('email')
             .eq('id', order.user_id)
@@ -72,7 +72,7 @@ export default function Admin() {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('users')
         .select('*')
         .range(0, 99)
@@ -86,7 +86,7 @@ export default function Admin() {
 
   const updateOrderStatus = async (orderId: number, status: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('orders')
         .update({ status })
         .eq('id', orderId)

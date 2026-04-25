@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CreditCard, Truck, Lock, AlertCircle } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabaseAdmin } from '../lib/supabase'
 import { useCartStore } from '../store/cart'
 import { toast } from 'sonner'
 
@@ -107,7 +107,7 @@ export default function Checkout() {
       const orderId = Math.floor(Math.random() * 100000)
 
       try {
-        await supabase.from('orders').insert({
+        await supabaseAdmin.from('orders').insert({
           user_id: user.id,
           order_number: orderId,
           customer_name: data.fullName,
@@ -121,7 +121,7 @@ export default function Checkout() {
           payment_method: data.paymentMethod,
         })
       } catch (supabaseErr) {
-        console.log('Supabase not configured, storing order locally')
+        console.log('Supabase error:', supabaseErr)
       }
 
       clearCart()
