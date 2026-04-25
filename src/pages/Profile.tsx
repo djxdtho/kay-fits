@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { User, Package, Heart, ShoppingBag, LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import { useCartStore, Order, Product } from '../store/cart'
 import { toast } from 'sonner'
 
 interface OrderWithItems extends Order {
   items: { product: Product; quantity: number; size: string; color: string }[]
+  payment_status?: string
+  delivery_status?: string
 }
 
 export default function Profile() {
@@ -25,38 +27,17 @@ export default function Profile() {
 
   const fetchOrders = async () => {
     try {
-      const { data: ordersData, error } = await supabase
+      const { data: ordersData, error } = await supabaseAdmin
         .from('orders')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
-
-      // Fetch order items for each order
-      const ordersWithItems = await Promise.all(
-        (ordersData || []).map(async (order) => {
-          const { data: items } = await supabase
-            .from('order_items')
-            .select('*, products(*)')
-            .eq('order_id', order.id)
-
-          return {
-            ...order,
-            items: items?.map(item => ({
-              product: item.products,
-              quantity: item.quantity,
-              size: item.size,
-              color: item.color,
-            })) || [],
-          }
-        })
-      )
-
-      setOrders(ordersWithItems)
+      setOrders(ordersData || [])
     } catch (err) {
       console.error('Error fetching orders:', err)
-    } finally {
+} finally {
       setLoading(false)
     }
   }
@@ -156,16 +137,26 @@ export default function Profile() {
                   <div key={order.id} className="border rounded-lg p-6">
                     <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                       <div>
-                        <p className="font-medium">Order #{order.id}</p>
+                        <p className="font-medium">Order #{(order as any).order_number || order.id}</p>
                         <p className="text-sm text-gray-500">
                           {new Date(order.created_at).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(order.status)}`}>
-                          {order.status.replace('_', ' ').toUpperCase()}
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          order.payment_status === 'confirmed' ? 'bg-green-100 text-green-800' : 
+                          order.payment_status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {order.payment_status || 'pending'}
                         </span>
-                        <span className="font-medium">₦{order.total.toLocaleString()}</span>
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          order.delivery_status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          order.delivery_status === 'on_the_way' ? 'bg-purple-100 text-purple-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {order.delivery_status || 'pending'}
+                        </span>
+                        <span className="font-medium">₦{Number(order.total).toLocaleString()}</span>
                       </div>
                     </div>
                     <div className="space-y-2">
