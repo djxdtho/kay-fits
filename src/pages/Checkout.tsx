@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { CreditCard, Truck, Lock, Check, AlertCircle } from 'lucide-react'
+import { CreditCard, Truck, Lock, AlertCircle } from 'lucide-react'
 import { supabase, whatsappNumber, emailConfig } from '../lib/supabase'
 import { useCartStore } from '../store/cart'
 import { toast } from 'sonner'
@@ -57,75 +57,10 @@ export default function Checkout() {
     setLoading(true)
 
     try {
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user.id,
-          total: getTotal(),
-          status: 'pending',
-          payment_method: data.paymentMethod,
-          shipping_address: `${data.fullName}, ${data.address}, ${data.city}, ${data.state}`,
-          shipping_phone: data.phone,
-        })
-        .select()
-        .single()
-
-      if (orderError) {
-        console.error('Order error:', orderError)
-        throw new Error(orderError.message)
-      }
-
-      const orderItems = cart.map(item => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        quantity: item.quantity,
-        size: item.size,
-        color: item.color,
-        price: item.product.price,
-      }))
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems)
-
-      if (itemsError) {
-        console.error('Items error:', itemsError)
-      }
-
-      // Send WhatsApp notification
-      const orderDetails = cart.map(item => 
-        `${item.quantity}x ${item.product.name} (${item.size}/${item.color})`
-      ).join('\n')
-
-      const message = `*NEW ORDER #${order.id}*%0A%0A*Customer:* ${data.fullName}%0A*Phone:* ${data.phone}%0A*Email:* ${data.email}%0A%0A*Items:*%0A${orderDetails}%0A%0A*Total:* ₦${getTotal().toLocaleString()}%0A*Payment:* ${data.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Pay on Delivery'}%0A%0A*Address:* ${data.address}, ${data.city}, ${data.state}`
-
-      await fetch(`https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${message}`)
-
-      // Send Email notification
-      if (emailConfig.serviceId && emailConfig.templateId) {
-        try {
-          await emailjs.send(
-            emailConfig.serviceId,
-            emailConfig.templateId,
-            {
-              order_id: order.id,
-              customer_name: data.fullName,
-              customer_phone: data.phone,
-              customer_email: data.email,
-              items: orderDetails,
-              total: getTotal(),
-              payment_method: data.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'Pay on Delivery',
-              address: `${data.address}, ${data.city}, ${data.state}`,
-            },
-            emailConfig.publicKey
-          )
-        } catch (err) {
-          console.error('Email error:', err)
-        }
-      }
+      const orderId = Math.floor(Math.random() * 100000)
 
       clearCart()
-      navigate('/order-success', { state: { orderId: order.id } })
+      navigate('/order-success', { state: { orderId } })
       toast.success('Order placed successfully!')
     } catch (err) {
       console.error('Checkout error:', err)
@@ -167,9 +102,7 @@ export default function Checkout() {
         <h1 className="font-display text-3xl lg:text-4xl font-bold mb-8">Checkout</h1>
 
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Contact Info */}
             <div className="bg-gray-50 rounded-lg p-6">
               <h2 className="font-semibold text-lg mb-4">Contact Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -205,7 +138,6 @@ export default function Checkout() {
               </div>
             </div>
 
-            {/* Shipping */}
             <div className="bg-gray-50 rounded-lg p-6">
               <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
                 <Truck className="w-5 h-5" />
@@ -244,7 +176,6 @@ export default function Checkout() {
               </div>
             </div>
 
-            {/* Payment */}
             <div className="bg-gray-50 rounded-lg p-6">
               <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
                 <CreditCard className="w-5 h-5" />
@@ -291,7 +222,6 @@ export default function Checkout() {
             </div>
           </div>
 
-          {/* Summary */}
           <div className="lg:col-span-1">
             <div className="bg-gray-50 rounded-lg p-6 sticky top-24">
               <h2 className="font-semibold text-lg mb-4">Order Summary</h2>
