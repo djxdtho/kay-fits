@@ -34,21 +34,8 @@ export default function Home() {
   }, [])
 
   const fetchProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('in_stock', true)
-        .range(0, 7)
-      
-      if (error) throw error
-      setProducts(data?.length ? data : sampleProducts)
-    } catch (err) {
-      console.error('Using sample products:', err)
-      setProducts(sampleProducts)
-    } finally {
-      setLoading(false)
-    }
+    setProducts(sampleProducts)
+    setLoading(false)
   }
 
   useGSAP(() => {

@@ -39,24 +39,9 @@ export default function Shop() {
 
   const fetchProducts = async (cat: string) => {
     setLoading(true)
-    try {
-      let query = supabase.from('products').select('*').eq('in_stock', true)
-      
-      if (cat) {
-        query = query.eq('category', cat)
-      }
-      
-      const { data, error } = await query.range(0, 23)
-      
-      if (error) throw error
-      setProducts(data?.length ? data : sampleProducts)
-    } catch (err) {
-      console.error('Using sample products:', err)
-      const filtered = cat ? sampleProducts.filter(p => p.category === cat) : sampleProducts
-      setProducts(filtered)
-    } finally {
-      setLoading(false)
-    }
+    const filtered = cat ? sampleProducts.filter(p => p.category === cat) : sampleProducts
+    setProducts(filtered)
+    setLoading(false)
   }
 
   const categoryName = categories.find(c => c.slug === selectedCategory)?.name || 'All Products'

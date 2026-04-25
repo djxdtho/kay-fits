@@ -36,31 +36,16 @@ export default function ProductDetail() {
   }, [id])
 
   const fetchProduct = async () => {
-    try {
-      const productId = Number(id)
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', productId)
-        .single()
-      
-      if (error) throw error
-      const found = data || sampleProductsMap[productId]
+    const productId = Number(id)
+    const found = sampleProductsMap[productId]
+    if (found) {
       setProduct(found)
-      setSelectedSize(found?.sizes?.[0] || 'M')
-      setSelectedColor(found?.colors?.[0] || 'BLACK')
-    } catch (err) {
-      console.error('Using sample product:', err)
-      const productId = Number(id)
-      const found = sampleProductsMap[productId]
-      if (found) {
-        setProduct(found)
-        setSelectedSize(found.sizes?.[0] || 'M')
-        setSelectedColor(found.colors?.[0] || 'BLACK')
-      }
-    } finally {
-      setLoading(false)
+      setSelectedSize(found.sizes?.[0] || 'M')
+      setSelectedColor(found.colors?.[0] || 'BLACK')
+    } else {
+      navigate('/shop')
     }
+    setLoading(false)
   }
 
   useGSAP(() => {
