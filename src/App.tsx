@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -45,7 +45,7 @@ function App() {
   }, [initCart])
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1">
@@ -68,7 +68,7 @@ function App() {
         <CartDrawer />
         <Toaster position="bottom-right" />
       </div>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 
