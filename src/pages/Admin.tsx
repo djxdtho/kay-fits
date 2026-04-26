@@ -207,7 +207,7 @@ export default function Admin() {
               >
                 <option value="">All Deliveries</option>
                 {deliveryStatuses.map(s => (
-                  <option key={s} value={s}>{status === 'on_the_way' ? 'On The Way' : status}</option>
+                  <option key={s} value={s}>{s === 'on_the_way' ? 'On The Way' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
                 ))}
               </select>
             </div>
@@ -229,8 +229,10 @@ export default function Admin() {
                           <span className="font-medium">Order #{(order as any).order_number || order.id}</span>
                           <span className="text-gray-500 ml-4">{order.customer_name}</span>
                           <span className="text-gray-400 ml-2 text-sm">{order.customer_email}</span>
+                          <span className="text-gray-400 ml-2 text-sm">{new Date(order.created_at).toLocaleString()}</span>
                         </div>
                         <div className="flex items-center gap-3">
+                          <span className="font-medium">₦{Number(order.total).toLocaleString()}</span>
                           <span className={`px-3 py-1 rounded-full text-sm ${
                             order.payment_status === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                           }`}>

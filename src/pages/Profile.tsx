@@ -7,7 +7,7 @@ import { useCartStore, Order, Product } from '../store/cart'
 import { toast } from 'sonner'
 
 interface OrderWithItems extends Order {
-  items: { product: Product; quantity: number; size: string; color: string }[]
+  items: { product: Product; quantity: number; size: string; color: string; price: number; product_id?: number }[]
   payment_status?: string
   delivery_status?: string
 }
@@ -25,7 +25,7 @@ export default function Profile() {
     }
   }, [user])
 
-  const fetchOrders = async () => {
+const fetchOrders = async () => {
     try {
       const { data: ordersData, error } = await supabaseAdmin
         .from('orders')
@@ -34,10 +34,42 @@ export default function Profile() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setOrders(ordersData || [])
+
+      // Fetch order items for each order
+      const ordersWithItems = await Promise.all(
+        (ordersData || []).map(async (order) => {
+          const { data: items } = await supabaseAdmin
+            .from('order_items')
+            .select('*')
+            .eq('order_id', order.id)
+
+          // Get product details for each item
+          const itemsWithProducts = await Promise.all(
+            (items || []).map(async (item) => {
+              const { data: product } = await supabaseAdmin
+                .from('products')
+                .select('*')
+                .eq('id', item.product_id)
+                .single()
+              
+              return {
+                ...item,
+                product: product
+              }
+            })
+          )
+
+          return {
+            ...order,
+            items: itemsWithProducts
+          }
+        })
+      )
+
+      setOrders(ordersWithItems)
     } catch (err) {
       console.error('Error fetching orders:', err)
-} finally {
+    } finally {
       setLoading(false)
     }
   }
