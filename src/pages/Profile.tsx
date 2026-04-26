@@ -147,14 +147,14 @@ export default function Profile() {
                           order.payment_status === 'confirmed' ? 'bg-green-100 text-green-800' : 
                           order.payment_status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {order.payment_status || 'pending'}
+                          {order.payment_status}
                         </span>
                         <span className={`px-3 py-1 rounded-full text-sm ${
                           order.delivery_status === 'delivered' ? 'bg-green-100 text-green-800' :
                           order.delivery_status === 'on_the_way' ? 'bg-purple-100 text-purple-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {order.delivery_status || 'pending'}
+                          {order.delivery_status === 'on_the_way' ? 'On The Way' : order.delivery_status}
                         </span>
                         <span className="font-medium">₦{Number(order.total).toLocaleString()}</span>
                       </div>

@@ -197,7 +197,7 @@ export default function Admin() {
               >
                 <option value="">All Payments</option>
                 {paymentStatuses.map(s => (
-                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  <option key={s} value={s}>{s === 'on_the_way' ? 'On The Way' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
                 ))}
               </select>
               <select
@@ -207,7 +207,7 @@ export default function Admin() {
               >
                 <option value="">All Deliveries</option>
                 {deliveryStatuses.map(s => (
-                  <option key={s} value={s}>{s === 'on_the_way' ? 'On The Way' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                  <option key={s} value={s}>{status === 'on_the_way' ? 'On The Way' : status}</option>
                 ))}
               </select>
             </div>

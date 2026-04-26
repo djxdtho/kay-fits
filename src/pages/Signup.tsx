@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Mail, Lock, User, Eye, EyeOff, Phone } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import { toast } from 'sonner'
 
 const signupSchema = z.object({
@@ -49,8 +49,8 @@ export default function Signup() {
 
       // Create user profile
       if (authData.user) {
-        await supabase
-          .from('users')
+        await supabaseAdmin
+          .from('profiles')
           .insert({
             id: authData.user.id,
             email: data.email,
