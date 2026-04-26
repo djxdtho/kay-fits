@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Minus, Plus, Heart, ShoppingBag, Star, Truck, RotateCcw } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabaseAdmin } from '../lib/supabase'
 import { Product, useCartStore } from '../store/cart'
 import { toast } from 'sonner'
 import { useGSAP } from '@gsap/react'
@@ -44,6 +44,11 @@ export default function ProductDetail() {
   const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState('')
   const [showSizeError, setShowSizeError] = useState(false)
+  const [reviews, setReviews] = useState<any[]>([])
+  const [canReview, setCanReview] = useState(false)
+  const [newReview, setNewReview] = useState('')
+  const [reviewRating, setReviewRating] = useState(5)
+  const [submittingReview, setSubmittingReview] = useState(false)
   
   const { addItem, wishlist, toggleWishlist, user } = useCartStore()
 
@@ -58,10 +63,83 @@ export default function ProductDetail() {
       setProduct(found)
       setSelectedSize(found.sizes?.[0] || 'M')
       setSelectedColor(found.colors?.[0] || 'BLACK')
-    } else {
-      navigate('/shop')
+      fetchReviews(productId)
+      if (user) checkCanReview(productId)
     }
     setLoading(false)
+  }
+
+  const fetchReviews = async (productId: number) => {
+    try {
+      const { data } = await supabaseAdmin
+        .from('reviews')
+        .select('*, profiles(*)')
+        .eq('product_id', productId)
+        .order('created_at', { ascending: false })
+      setReviews(data || [])
+    } catch (err) {
+      console.error('Error fetching reviews:', err)
+    }
+  }
+
+  const checkCanReview = async (productId: number) => {
+    if (!user) {
+      setCanReview(false)
+      return
+    }
+    try {
+      const { data: orders } = await supabaseAdmin
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('payment_status', 'confirmed')
+      
+      let hasOrdered = false
+      for (const order of (orders || [])) {
+        const { data: items } = await supabaseAdmin
+          .from('order_items')
+          .select('product_id')
+          .eq('order_id', order.id)
+        
+        if (items?.some((item: any) => item.product_id === productId)) {
+          hasOrdered = true
+          break
+        }
+      }
+      
+      setCanReview(hasOrdered)
+    } catch (err) {
+      setCanReview(false)
+    }
+  }
+
+  const submitReview = async () => {
+    if (!user) {
+      toast.error('Please login to review')
+      return
+    }
+    if (!newReview.trim()) {
+      toast.error('Please write a review')
+      return
+    }
+
+    setSubmittingReview(true)
+    try {
+      await supabaseAdmin.from('reviews').insert({
+        user_id: user.id,
+        product_id: Number(id),
+        rating: reviewRating,
+        comment: newReview,
+      })
+      toast.success('Review submitted!')
+      setNewReview('')
+      setReviewRating(5)
+      fetchReviews(Number(id))
+    } catch (err) {
+      toast.error('Failed to submit review')
+    } finally {
+      setSubmittingReview(false)
+    }
   }
 
   useGSAP(() => {
@@ -70,127 +148,86 @@ export default function ProductDetail() {
         opacity: 0,
         y: 20,
         duration: 0.5,
-        stagger: 0.1
+        ease: 'power2.out'
       })
     }
   }, [product])
 
   const handleAddToBag = () => {
+    if (!product) return
+    
+    if (!selectedSize) {
+      setShowSizeError(true)
+      return
+    }
     if (!user) {
       toast.error('Please login to add items to bag')
       navigate('/login')
       return
     }
-    if (!selectedSize) {
-      setShowSizeError(true)
-      toast.error('Please select a size')
-      return
-    }
-    addItem(product!, selectedSize, selectedColor, quantity)
+    addItem(product, selectedSize, selectedColor, quantity)
     toast.success('Added to bag!')
   }
 
-  const handleBuyNow = () => {
-    if (!user) {
-      toast.error('Please login to purchase')
-      navigate('/login')
-      return
-    }
-    if (!selectedSize) {
-      setShowSizeError(true)
-      toast.error('Please select a size')
-      return
-    }
-    addItem(product!, selectedSize, selectedColor, quantity)
-    navigate('/checkout')
-  }
-
-  const handleWishlist = () => {
-    if (!user) {
-      toast.error('Please login to add to wishlist')
-      return
-    }
-    toggleWishlist(product!.id)
-    toast.success(wishlist.includes(product!.id) ? 'Removed from wishlist' : 'Added to wishlist')
-  }
+  const averageRating = reviews.length > 0
+    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
+    : 0
 
   if (loading) {
     return (
       <div className="pt-24 lg:pt-28 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-            <div className="animate-pulse">
-              <div className="aspect-[3/4] bg-gray-200 rounded-lg" />
-            </div>
-            <div className="space-y-4">
-              <div className="h-8 bg-gray-200 rounded w-3/4" />
-              <div className="h-6 bg-gray-200 rounded w-1/4" />
-              <div className="h-20 bg-gray-200 rounded" />
-            </div>
+          <div className="animate-pulse">
+            <div className="h-[500px] bg-gray-200 rounded-lg" />
           </div>
         </div>
       </div>
     )
   }
 
-  if (!product) return null
-
-  const images = product.images || [product.image_url]
+  if (!product) {
+    return (
+      <div className="pt-24 lg:pt-28 pb-16">
+        <div className="max-w-7xl mx-auto px-4 text-center py-16">
+          <h1 className="font-display text-2xl font-bold mb-4">Product not found</h1>
+          <Link to="/shop" className="text-black underline">Back to Shop</Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="pt-24 lg:pt-28 pb-16">
+    <div className="pt-24 lg:pt-28 pb-16 product-detail">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Images */}
-          <div className="product-detail">
-            <div className="aspect-[3/4] overflow-hidden rounded-lg bg-gray-100 mb-4">
-              <img 
-                src={images[selectedImage]} 
+          <div className="space-y-4">
+            <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100">
+              <img
+                src={product.image_url}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />
             </div>
-            {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto">
-                {images.map((img, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedImage(i)}
-                    className={`w-20 h-24 flex-shrink-0 rounded-md overflow-hidden ${
-                      selectedImage === i ? 'ring-2 ring-black' : ''
-                    }`}
-                  >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Info */}
-          <div className="product-detail lg:py-4">
-            <div className="mb-6">
+          {/* Details */}
+          <div className="space-y-6">
+            <div>
               <p className="text-gray-500 text-sm uppercase tracking-wide mb-2">
                 {product.category}
               </p>
-              <h1 className="font-display text-3xl lg:text-4xl font-bold mb-4">
+              <h1 className="font-display text-3xl lg:text-4xl font-bold">
                 {product.name}
               </h1>
-              <p className="text-2xl font-semibold">
-                ₦{product.price.toLocaleString()}
-              </p>
+              <p className="text-2xl font-semibold mt-2">₦{product.price.toLocaleString()}</p>
             </div>
 
-            <p className="text-gray-600 mb-6">
-              {product.description}
-            </p>
+            <p className="text-gray-600">{product.description}</p>
 
             {/* Size */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">Size</span>
-                <button className="text-sm text-gray-500 underline">Size Guide</button>
-              </div>
+            <div>
+              <p className="font-medium mb-2">Size</p>
               <div className="flex flex-wrap gap-2">
                 {product.sizes?.map((size) => (
                   <button
@@ -199,10 +236,10 @@ export default function ProductDetail() {
                       setSelectedSize(size)
                       setShowSizeError(false)
                     }}
-                    className={`w-12 h-12 rounded-full border-2 transition-colors ${
+                    className={`w-12 h-12 rounded-lg border-2 font-medium ${
                       selectedSize === size
                         ? 'border-black bg-black text-white'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-gray-200 hover:border-black'
                     }`}
                   >
                     {size}
@@ -215,17 +252,17 @@ export default function ProductDetail() {
             </div>
 
             {/* Color */}
-            <div className="mb-6">
-              <span className="font-medium block mb-2">Color: {selectedColor}</span>
+            <div>
+              <p className="font-medium mb-2">Color</p>
               <div className="flex flex-wrap gap-2">
                 {product.colors?.map((color) => (
                   <button
                     key={color}
                     onClick={() => setSelectedColor(color)}
-                    className={`px-4 py-2 rounded-full border-2 transition-colors ${
+                    className={`px-4 py-2 rounded-lg border-2 font-medium ${
                       selectedColor === color
                         ? 'border-black bg-black text-white'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-gray-200 hover:border-black'
                     }`}
                   >
                     {color}
@@ -235,59 +272,120 @@ export default function ProductDetail() {
             </div>
 
             {/* Quantity */}
-            <div className="mb-6">
-              <span className="font-medium block mb-2">Quantity</span>
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <span className="w-8 text-center font-medium">{quantity}</span>
-                <button 
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+            <div>
+              <p className="font-medium mb-2">Quantity</p>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center border rounded-lg">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="p-3 hover:bg-gray-50"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="w-12 text-center font-medium">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="p-3 hover:bg-gray-50"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-3 mb-8">
-              <button 
-                onClick={handleBuyNow}
-                className="flex-1 bg-black text-white py-4 rounded-full font-medium hover:bg-gray-800 transition-colors"
-              >
-                Buy Now
-              </button>
-              <button 
+            {/* Add to Bag */}
+            <div className="flex gap-4">
+              <button
                 onClick={handleAddToBag}
-                className="flex-1 border-2 border-black py-4 rounded-full font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 bg-black text-white py-4 rounded-full font-medium hover:bg-gray-800 flex items-center justify-center gap-2"
               >
                 <ShoppingBag className="w-5 h-5" />
                 Add to Bag
               </button>
-              <button 
-                onClick={handleWishlist}
-                className="w-14 h-14 rounded-full border-2 border-gray-200 flex items-center justify-center hover:border-gray-300"
+              <button
+                onClick={() => {
+                  if (!user) {
+                    toast.error('Please login')
+                    return
+                  }
+                  toggleWishlist(product.id)
+                  toast.success(wishlist.includes(product.id) ? 'Removed from wishlist' : 'Added to wishlist')
+                }}
+                className={`p-4 rounded-full border-2 ${
+                  wishlist.includes(product.id)
+                    ? 'border-red-500 bg-red-50 text-red-500'
+                    : 'border-gray-200 hover:border-black'
+                }`}
               >
-                <Heart 
-                  className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : ''}`} 
-                />
+                <Heart className={`w-5 h-5 ${wishlist.includes(product.id) ? 'fill-current' : ''}`} />
               </button>
             </div>
 
-            {/* Shipping Info */}
-            <div className="space-y-3 pt-6 border-t">
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <Truck className="w-5 h-5" />
-                <span>Free shipping on orders over ₦50,000</span>
+            {/* Reviews Section */}
+            <div className="border-t pt-8 mt-8">
+              <div className="flex items-center gap-4 mb-6">
+                <h2 className="font-display text-2xl font-bold">Reviews</h2>
+                <div className="flex items-center gap-1">
+                  <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                  <span className="font-medium">{averageRating}</span>
+                  <span className="text-gray-500">({reviews.length} reviews)</span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <RotateCcw className="w-5 h-5" />
-                <span>Easy returns within 7 days</span>
+
+              {canReview && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <p className="font-medium mb-2">Write a Review</p>
+                  <div className="flex gap-1 mb-3">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button key={star} onClick={() => setReviewRating(star)}>
+                        <Star className={`w-6 h-6 ${star <= reviewRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={newReview}
+                    onChange={(e) => setNewReview(e.target.value)}
+                    placeholder="Write your review..."
+                    className="w-full px-4 py-2 border rounded-lg mb-3"
+                    rows={3}
+                  />
+                  <button
+                    onClick={submitReview}
+                    disabled={submittingReview}
+                    className="bg-black text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50"
+                  >
+                    {submittingReview ? 'Submitting...' : 'Submit Review'}
+                  </button>
+                </div>
+              )}
+
+              {!canReview && user && (
+                <p className="text-gray-500 text-sm mb-4">Order this product to write a review</p>
+              )}
+
+              {!user && (
+                <p className="text-gray-500 text-sm mb-4">Login to write a review</p>
+              )}
+
+              <div className="space-y-4">
+                {reviews.map((review) => (
+                  <div key={review.id} className="border-b pb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star key={star} className={`w-4 h-4 ${star <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                        ))}
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {review.profiles?.full_name || 'Anonymous'}
+                      </span>
+                    </div>
+                    <p className="text-gray-600">{review.comment}</p>
+                  </div>
+                ))}
+                {reviews.length === 0 && (
+                  <p className="text-gray-500">No reviews yet</p>
+                )}
               </div>
             </div>
           </div>
