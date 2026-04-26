@@ -6,6 +6,33 @@ import { supabase, supabaseAdmin } from '../lib/supabase'
 import { useCartStore, Order, Product } from '../store/cart'
 import { toast } from 'sonner'
 
+const sampleProductImages: Record<number, string> = {
+    1: 'https://djxdtho.github.io/kay-fits/images/product_01.jpg',
+    2: 'https://djxdtho.github.io/kay-fits/images/product_02.jpg',
+    3: 'https://djxdtho.github.io/kay-fits/images/product_03.jpg',
+    4: 'https://djxdtho.github.io/kay-fits/images/product_04.jpg',
+    5: 'https://djxdtho.github.io/kay-fits/images/product_05.jpg',
+    6: 'https://djxdtho.github.io/kay-fits/images/product_06.jpg',
+    7: 'https://djxdtho.github.io/kay-fits/images/product_07.jpg',
+    8: 'https://djxdtho.github.io/kay-fits/images/product_08.jpg',
+    9: 'https://djxdtho.github.io/kay-fits/images/product_09.jpg',
+    10: 'https://djxdtho.github.io/kay-fits/images/product_10.jpg',
+    11: 'https://djxdtho.github.io/kay-fits/images/product_11.jpg',
+    12: 'https://djxdtho.github.io/kay-fits/images/product_12.jpg',
+    13: 'https://djxdtho.github.io/kay-fits/images/product_13.jpg',
+    14: 'https://djxdtho.github.io/kay-fits/images/product_14.jpg',
+    15: 'https://djxdtho.github.io/kay-fits/images/product_15.jpg',
+    16: 'https://djxdtho.github.io/kay-fits/images/product_16.jpg',
+    17: 'https://djxdtho.github.io/kay-fits/images/product_17.jpg',
+    18: 'https://djxdtho.github.io/kay-fits/images/product_18.jpg',
+    19: 'https://djxdtho.github.io/kay-fits/images/product_19.jpg',
+    20: 'https://djxdtho.github.io/kay-fits/images/product_20.jpg',
+    21: 'https://djxdtho.github.io/kay-fits/images/product_21.jpg',
+    22: 'https://djxdtho.github.io/kay-fits/images/product_22.jpg',
+    23: 'https://djxdtho.github.io/kay-fits/images/product_23.jpg',
+    24: 'https://djxdtho.github.io/kay-fits/images/product_24.jpg',
+  }
+
 interface OrderWithItems extends Order {
   items: { product: Product; quantity: number; size: string; color: string; price: number; product_id?: number }[]
   payment_status?: string
@@ -54,7 +81,7 @@ const fetchOrders = async () => {
               
               return {
                 ...item,
-                product: product
+                product: product || { id: item.product_id, name: 'Product', image_url: sampleProductImages[item.product_id] || sampleProductImages[1] }
               }
             })
           )
@@ -192,21 +219,25 @@ const fetchOrders = async () => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      {order.items?.map((item, i) => (
+                      {order.items?.length > 0 ? order.items.map((item: any, i: number) => (
                         <div key={i} className="flex items-center gap-4 text-sm">
                           <img
-                            src={item.product?.image_url}
-                            alt={item.product?.name}
+                            src={item.product?.image_url || item.product?.image || 'https://djxdtho.github.io/kay-fits/images/product_01.jpg'}
+                            alt={item.product?.name || 'Product'}
                             className="w-12 h-16 object-cover rounded"
+                            onError={(e) => {(e.target as HTMLImageElement).src = 'https://djxdtho.github.io/kay-fits/images/product_01.jpg'}}
                           />
                           <div className="flex-1">
-                            <p>{item.product?.name}</p>
+                            <p>{item.product?.name || 'Product'}</p>
                             <p className="text-gray-500">
                               {item.quantity}x • {item.size} • {item.color}
                             </p>
                           </div>
+                          <p className="font-medium">₦{Number(item.price || item.product?.price || 0).toLocaleString()}</p>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="text-gray-500 text-sm">Loading items...</div>
+                      )}
                     </div>
                   </div>
                 ))}
