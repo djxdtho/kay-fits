@@ -196,7 +196,7 @@ const fetchOrders = async () => {
                   <div key={order.id} className="border rounded-lg p-6">
                     <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                       <div>
-                        <p className="font-medium">Order #{(order as any).order_number || order.id}</p>
+                        <p className="font-medium">Order #{order.id}</p>
                         <p className="text-sm text-gray-500">
                           {new Date(order.created_at).toLocaleDateString()}
                         </p>

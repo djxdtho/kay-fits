@@ -285,7 +285,7 @@ export default function Admin() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="font-medium">Order #{(order as any).order_number || order.id}</span>
+                          <span className="font-medium">Order #{order.id}</span>
                           <span className="text-gray-500 ml-4">{order.customer_name}</span>
                           <span className="text-gray-400 ml-2 text-sm">{order.customer_email}</span>
                           <span className="text-gray-400 ml-2 text-sm">{new Date(order.created_at).toLocaleString()}</span>

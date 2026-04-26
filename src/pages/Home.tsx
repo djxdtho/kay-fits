@@ -3,8 +3,6 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Product } from '../store/cart'
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
 
 const sampleProducts: Product[] = [
   { id: 1, name: 'Classic Black Hoodie', description: 'Premium cotton hoodie', price: 15000, category: 'hoodie', image_url: 'https://djxdtho.github.io/kay-fits/images/product_01.jpg', sizes: ['S','M','L','XL'], colors: ['BLACK','NAVY'], in_stock: true },
@@ -54,16 +52,6 @@ export default function Home() {
     setLoading(false)
   }
 
-  useGSAP(() => {
-    gsap.from('.hero-text', {
-      y: 50,
-      opacity: 0,
-      duration: 0.8,
-      stagger: 0.2,
-      ease: 'power3.out'
-    })
-  })
-
   return (
     <div className="pt-16 lg:pt-20">
       {/* Hero Section */}
@@ -79,19 +67,19 @@ export default function Home() {
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
           <div className="max-w-xl">
-            <p className="hero-text text-white/80 text-sm tracking-widest uppercase mb-4">
+            <p className="text-white/80 text-sm tracking-widest uppercase mb-4">
               New Collection 2026
             </p>
-            <h1 className="hero-text font-display text-5xl lg:text-7xl font-bold text-white mb-6">
+            <h1 className="font-display text-5xl lg:text-7xl font-bold text-white mb-6">
               STREETWEAR<br />
               <span className="italic font-light">ESSENTIALS</span>
             </h1>
-            <p className="hero-text text-white/90 text-lg mb-8 max-w-md">
+            <p className="text-white/90 text-lg mb-8 max-w-md">
               Elevate your style with premium streetwear designed for the modern individual.
             </p>
             <Link 
               to="#/shop"
-              className="hero-text inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-colors btn-hover"
+              className="inline-flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium hover:bg-gray-100 transition-colors"
             >
               Shop Now
               <ArrowRight className="w-5 h-5" />
