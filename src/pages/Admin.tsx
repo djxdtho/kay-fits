@@ -5,8 +5,35 @@ import { Link } from 'react-router-dom'
 
 const ADMIN_PASSWORD = 'kayfits2024'
 
-const paymentStatuses = ['pending', 'confirmed', 'cancelled']
-const deliveryStatuses = ['pending', 'on_the_way', 'delivered']
+const sampleProductImages: Record<number, string> = {
+  1: 'https://djxdtho.github.io/kay-fits/images/product_01.jpg',
+  2: 'https://djxdtho.github.io/kay-fits/images/product_02.jpg',
+  3: 'https://djxdtho.github.io/kay-fits/images/product_03.jpg',
+  4: 'https://djxdtho.github.io/kay-fits/images/product_04.jpg',
+  5: 'https://djxdtho.github.io/kay-fits/images/product_05.jpg',
+  6: 'https://djxdtho.github.io/kay-fits/images/product_06.jpg',
+  7: 'https://djxdtho.github.io/kay-fits/images/product_07.jpg',
+  8: 'https://djxdtho.github.io/kay-fits/images/product_08.jpg',
+  9: 'https://djxdtho.github.io/kay-fits/images/product_09.jpg',
+  10: 'https://djxdtho.github.io/kay-fits/images/product_10.jpg',
+  11: 'https://djxdtho.github.io/kay-fits/images/product_11.jpg',
+  12: 'https://djxdtho.github.io/kay-fits/images/product_12.jpg',
+  13: 'https://djxdtho.github.io/kay-fits/images/product_13.jpg',
+  14: 'https://djxdtho.github.io/kay-fits/images/product_14.jpg',
+  15: 'https://djxdtho.github.io/kay-fits/images/product_15.jpg',
+  16: 'https://djxdtho.github.io/kay-fits/images/product_16.jpg',
+  17: 'https://djxdtho.github.io/kay-fits/images/product_17.jpg',
+  18: 'https://djxdtho.github.io/kay-fits/images/product_18.jpg',
+  19: 'https://djxdtho.github.io/kay-fits/images/product_19.jpg',
+  20: 'https://djxdtho.github.io/kay-fits/images/product_20.jpg',
+  21: 'https://djxdtho.github.io/kay-fits/images/product_21.jpg',
+  22: 'https://djxdtho.github.io/kay-fits/images/product_22.jpg',
+  23: 'https://djxdtho.github.io/kay-fits/images/product_23.jpg',
+  24: 'https://djxdtho.github.io/kay-fits/images/product_24.jpg',
+}
+
+const paymentStatuses = ['pending', 'confirmed', 'failed']
+const deliveryStatuses = ['pending', 'on_the_way', 'delivered', 'cancelled']
 
 export default function Admin() {
   const [password, setPassword] = useState('')
@@ -43,7 +70,39 @@ export default function Admin() {
         .range(0, 99)
 
       if (error) throw error
-      setOrders(ordersData || [])
+
+      // Fetch order items for each order
+      const ordersWithItems = await Promise.all(
+        (ordersData || []).map(async (order) => {
+          const { data: items } = await supabaseAdmin
+            .from('order_items')
+            .select('*')
+            .eq('order_id', order.id)
+
+          // Get product details for each item
+          const itemsWithProducts = await Promise.all(
+            (items || []).map(async (item) => {
+              const { data: product } = await supabaseAdmin
+                .from('products')
+                .select('*')
+                .eq('id', item.product_id)
+                .single()
+              
+              return {
+                ...item,
+                product: product || { id: item.product_id, name: 'Product', image_url: sampleProductImages[item.product_id] || sampleProductImages[1] }
+              }
+            })
+          )
+
+          return {
+            ...order,
+            items: itemsWithProducts
+          }
+        })
+      )
+
+      setOrders(ordersWithItems)
     } catch (err) {
       console.error('Error fetching orders:', err)
     } finally {
@@ -256,6 +315,26 @@ export default function Admin() {
                           <p><strong>Phone:</strong> {order.customer_phone}</p>
                           <p><strong>Address:</strong> {order.shipping_address}, {order.shipping_city}, {order.shipping_state}</p>
                           <p><strong>Payment:</strong> {order.payment_method}</p>
+                        </div>
+                        
+                        <div className="mb-4">
+                          <p className="font-medium mb-2">Items Ordered:</p>
+                          <div className="space-y-2">
+                            {(order as any).items?.length > 0 ? (order as any).items.map((item: any, i: number) => (
+                              <div key={i} className="flex items-center gap-3 text-sm">
+                                <img 
+                                  src={item.product?.image_url || item.product?.image || sampleProductImages[item.product_id] || sampleProductImages[1]} 
+                                  alt={item.product?.name || 'Product'}
+                                  className="w-10 h-12 object-cover rounded"
+                                />
+                                <div className="flex-1">
+                                  <p>{item.product?.name || 'Product'}</p>
+                                  <p className="text-gray-500 text-xs">{item.quantity}x • {item.size} • {item.color}</p>
+                                </div>
+                                <p className="font-medium">₦{Number(item.price || item.product?.price || 0).toLocaleString()}</p>
+                              </div>
+                            )) : <p className="text-gray-500">Loading items...</p>}
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

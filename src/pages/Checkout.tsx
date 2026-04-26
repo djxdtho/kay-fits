@@ -105,26 +105,36 @@ export default function Checkout() {
 
     try {
       const orderId = Math.floor(Math.random() * 100000)
+      
+      // Get the inserted order to get its actual ID
+      const { data: newOrder, error: orderError } = await supabaseAdmin.from('orders').insert({
+        user_id: user.id,
+        order_number: orderId,
+        customer_name: data.fullName,
+        customer_email: data.email,
+        customer_phone: data.phone,
+        shipping_address: data.address,
+        shipping_state: data.state,
+        shipping_city: data.city,
+        total: getTotal(),
+        payment_status: 'pending',
+        delivery_status: 'pending',
+        payment_method: data.paymentMethod,
+      }).select().single()
 
-      try {
-        await supabaseAdmin.from('orders').insert({
-          user_id: user.id,
-          order_number: orderId,
-          customer_name: data.fullName,
-          customer_email: data.email,
-          customer_phone: data.phone,
-          shipping_address: data.address,
-          shipping_state: data.state,
-          shipping_city: data.city,
-          total: getTotal(),
-          payment_status: 'pending',
-          delivery_status: 'pending',
-          payment_method: data.paymentMethod,
-        })
-      } catch (supabaseErr) {
-        console.log('Supabase error:', supabaseErr)
-      }
+      if (orderError) throw orderError
 
+      // Save order items
+      const orderItems = cart.map(item => ({
+        order_id: newOrder?.id || orderId,
+        product_id: item.product.id,
+        quantity: item.quantity,
+        size: item.size,
+        color: item.color,
+        price: item.product.price,
+      }))
+
+      await supabaseAdmin.from('order_items').insert(orderItems)
       clearCart()
       navigate('/order-success', { state: { orderId } })
       toast.success('Order placed successfully!')
